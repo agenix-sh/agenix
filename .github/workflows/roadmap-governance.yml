@@ -13,6 +13,7 @@ permissions:
 jobs:
   roadmap-governance:
     runs-on: ubuntu-latest
+
     steps:
       - name: Add to AGEniX Roadmap
         uses: actions/add-to-project@v1.0.2
@@ -20,144 +21,115 @@ jobs:
           project-url: https://github.com/orgs/agenix-sh/projects/1
           github-token: ${{ secrets.ORG_PROJECT_TOKEN }}
 
-      - name: Update Roadmap Fields
-        uses: actions/github-script@v7
+      - name: Update roadmap fields using REST API
         env:
           GH_TOKEN: ${{ secrets.ORG_PROJECT_TOKEN }}
-        with:
-          script: |
-            const ORG = "agenix-sh";
-            const PROJECT_TITLE = "AGeniX Roadmap";
-            const COMPONENT_VALUE = "docs";  // repo-specific
-
-            const issueNode =
-              context.payload.issue?.node_id ||
-              context.payload.pull_request?.node_id;
-
-            if (!issueNode) {
-              console.log("No issue/PR node id. Skipping.");
-              return;
-            }
-
-            // Priority based on labels
-            const labels =
-              (context.payload.issue?.labels ||
-               context.payload.pull_request?.labels || [])
-               .map(l => l.name);
-
-            let priority = "P3";
-            if (labels.includes("P1")) priority = "P1";
-            if (labels.includes("P2")) priority = "P2";
-
-            // Status based on lifecycle
-            let status = "Backlog";
-            if (context.payload.action === "assigned") status = "Next";
-            if (context.payload.pull_request?.state === "open") status = "Doing";
-            if (context.payload.issue?.state === "closed" ||
-                context.payload.pull_request?.state === "closed")
-                status = "Done";
-
-            // --- FETCH PROJECT + FIELDS + ITEMS ---
-            const result = await github.graphql(`
-              query($org: String!) {
-                organization(login: $org) {
-                  projectsV2(first: 20) {
-                    nodes {
-                      id
-                      title
-                      fields(first: 50) {
-                        nodes {
-                          __typename
-                          id
-                          name
-                          dataType
-                          ... on ProjectV2SingleSelectField {
-                            options {
-                              id
-                              name
-                            }
-                          }
-                        }
-                      }
-                      items(first: 200) {
-                        nodes {
-                          id
-                          content {
-                            ... on Issue { id }
-                            ... on PullRequest { id }
-                          }
-                        }
-                      }
-                    }
-                  }
+        run: |
+          # -----------------------------------------------
+          # CONFIG
+          # -----------------------------------------------
+          PROJECT_ID=$(gh api graphql -f query='
+            query {
+              organization(login:"agenix-sh") {
+                projectsV2(first:20) {
+                  nodes { id title }
                 }
               }
-            `, { org: ORG });
+            }' \
+            --jq '.data.organization.projectsV2.nodes[] | select(.title=="AGeniX Roadmap") | .id')
 
-            // pick the project
-            const project = result.organization.projectsV2.nodes
-              .find(p => p.title === PROJECT_TITLE);
+          echo "Project ID: $PROJECT_ID"
 
-            if (!project) {
-              console.log("Project not found!");
-              return;
-            }
+          # Content node id (issue or PR)
+          CONTENT_ID=$(jq -r '.issue.node_id // .pull_request.node_id' <<< "$GITHUB_EVENT_PATH")
+          if [ "$CONTENT_ID" = "null" ]; then
+            echo "No content node id found. Exiting."
+            exit 0
+          fi
 
-            // find the project item by matching content id
-            const item = project.items.nodes.find(
-              i => i.content?.id === issueNode
-            );
-            if (!item) {
-              console.log("Project item not found yet; add-to-project will handle creation.");
-              return;
-            }
+          # -----------------------------------------------
+          # Get project fields via REST (stablest path)
+          # -----------------------------------------------
+          FIELDS_JSON=$(gh api \
+            /projects/${PROJECT_ID}/fields \
+            -H "Accept: application/vnd.github+json")
 
-            // helper to find field and correct option
-            function getField(name) {
-              return project.fields.nodes.find(f => f.name === name);
-            }
-            function getOption(field, valueName) {
-              return field.options?.find(o => o.name === valueName);
-            }
+          # Field IDs
+          COMPONENT_FIELD=$(echo "$FIELDS_JSON" | jq -r '.[] | select(.name=="Component") | .id')
+          PRIORITY_FIELD=$(echo "$FIELDS_JSON" | jq -r '.[] | select(.name=="Priority") | .id')
+          STATUS_FIELD=$(echo "$FIELDS_JSON" | jq -r '.[] | select(.name=="Status") | .id')
 
-            async function setFieldValue(fieldName, valueName) {
-              const field = getField(fieldName);
-              if (!field) return;
+          echo "Field IDs:"
+          echo "Component = $COMPONENT_FIELD"
+          echo "Priority  = $PRIORITY_FIELD"
+          echo "Status    = $STATUS_FIELD"
 
-              if (field.__typename !== "ProjectV2SingleSelectField") {
-                console.log(`Field '${fieldName}' is not single-select.`);
-                return;
-              }
+          # -----------------------------------------------
+          # Find the project item id matching our content
+          # -----------------------------------------------
+          ITEM_ID=$(gh api \
+            /projects/${PROJECT_ID}/items \
+            -H "Accept: application/vnd.github+json" \
+            --jq ".items[] | select(.content_node_id==\"$CONTENT_ID\") | .id")
 
-              const option = getOption(field, valueName);
-              if (!option) {
-                console.log(`Option '${valueName}' not found for field '${fieldName}'`);
-                return;
-              }
+          if [ -z "$ITEM_ID" ]; then
+            echo "Item not found yet. Workflow will run again. Exiting."
+            exit 0
+          fi
 
-              await github.graphql(`
-                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-                  updateProjectV2ItemFieldValue(input:{
-                    projectId:$projectId,
-                    itemId:$itemId,
-                    fieldId:$fieldId,
-                    value:{ singleSelectOptionId:$optionId }
-                  }) {
-                    projectV2Item { id }
-                  }
-                }
-              `, {
-                projectId: project.id,
-                itemId: item.id,
-                fieldId: field.id,
-                optionId: option.id
-              });
+          echo "Item ID: $ITEM_ID"
 
-              console.log(`✓ Updated ${fieldName} → ${valueName}`);
-            }
+          # -----------------------------------------------
+          # Determine field values
+          # -----------------------------------------------
+          COMPONENT="docs"
 
-            await setFieldValue("Component", COMPONENT_VALUE);
-            await setFieldValue("Priority", priority);
-            await setFieldValue("Status", status);
+          # Priority based on labels
+          PRIORITY="P3"
+          if gh api "$GITHUB_EVENT_PATH" | jq -e '.issue.labels[] | select(.name=="P1")' >/dev/null 2>&1; then PRIORITY="P1"; fi
+          if gh api "$GITHUB_EVENT_PATH" | jq -e '.issue.labels[] | select(.name=="P2")' >/dev/null 2>&1; then PRIORITY="P2"; fi
 
-            console.log("✓ All fields updated");
+          # Status based on state
+          STATUS="Backlog"
+          if [ "${GITHUB_EVENT_NAME}" = "issues" ] && [ "${GITHUB_EVENT_ACTION}" = "assigned" ]; then STATUS="Next"; fi
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ] && [ "${GITHUB_EVENT_ACTION}" = "opened" ]; then STATUS="Doing"; fi
+          if [ "${GITHUB_EVENT_ACTION}" = "closed" ]; then STATUS="Done"; fi
+
+          echo "Setting:"
+          echo "  Component = $COMPONENT"
+          echo "  Priority  = $PRIORITY"
+          echo "  Status    = $STATUS"
+
+          # -----------------------------------------------
+          # Helper: Resolve field option IDs
+          # -----------------------------------------------
+          get_option_id () {
+            field_id=$1
+            value=$2
+            echo "$FIELDS_JSON" | jq -r \
+              ".[] | select(.id==\"$field_id\") | .options[] | select(.name==\"$value\") | .id"
+          }
+
+          COMPONENT_ID=$(get_option_id "$COMPONENT_FIELD" "$COMPONENT")
+          PRIORITY_ID=$(get_option_id "$PRIORITY_FIELD" "$PRIORITY")
+          STATUS_ID=$(get_option_id "$STATUS_FIELD" "$STATUS")
+
+          # -----------------------------------------------
+          # Update fields (REST)
+          # -----------------------------------------------
+          gh api \
+            /projects/${PROJECT_ID}/items/${ITEM_ID}/fields/${COMPONENT_FIELD} \
+            -X PUT -F "value=$COMPONENT_ID" \
+            -H "Accept: application/vnd.github+json"
+
+          gh api \
+            /projects/${PROJECT_ID}/items/${ITEM_ID}/fields/${PRIORITY_FIELD} \
+            -X PUT -F "value=$PRIORITY_ID" \
+            -H "Accept: application/vnd.github+json"
+
+          gh api \
+            /projects/${PROJECT_ID}/items/${ITEM_ID}/fields/${STATUS_FIELD} \
+            -X PUT -F "value=$STATUS_ID" \
+            -H "Accept: application/vnd.github+json"
+
+          echo "✓ Fields updated via REST"
