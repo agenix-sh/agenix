@@ -6,7 +6,7 @@ on:
 
 permissions:
   issues: write
-  projects: write
+  project: write   # ← FIXED: must be singular
   contents: read
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
 
             const issueNodeId = context.payload.issue.node_id;
 
-            // Fetch all ProjectsV2 for the organisation
+            // Fetch all ProjectsV2 for the org
             const projects = await github.graphql(`
               query($org: String!) {
                 organization(login: $org) {
