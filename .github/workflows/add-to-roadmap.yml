@@ -6,7 +6,7 @@ on:
 
 permissions:
   issues: write
-  project: write   # ← FIXED: must be singular
+  repository-projects: write   # ← THIS is the correct Projects v2 permission
   contents: read
 
 jobs:
@@ -18,11 +18,11 @@ jobs:
         with:
           script: |
             const org = "agenix-sh";
-            const project = "AGeniX Roadmap"; // EXACT name required
+            const project = "AGeniX Roadmap"; // EXACT match required
 
             const issueNodeId = context.payload.issue.node_id;
 
-            // Fetch all ProjectsV2 for the org
+            // Fetch all ProjectsV2 for the organization
             const projects = await github.graphql(`
               query($org: String!) {
                 organization(login: $org) {
@@ -45,7 +45,7 @@ jobs:
 
             const projectId = projectNode.id;
 
-            // Add issue to the project
+            // Add the issue to the org project
             await github.graphql(`
               mutation($projectId: ID!, $contentId: ID!) {
                 addProjectV2ItemById(input: {
