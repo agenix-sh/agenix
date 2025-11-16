@@ -1,0 +1,116 @@
+name: AGEniX Roadmap Governance
+
+on:
+  issues:
+    types: [opened, edited, reopened, closed, assigned]
+  pull_request:
+    types: [opened, reopened, closed]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  roadmap-governance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add to AGEniX Roadmap
+        uses: actions/add-to-project@v1.0.2
+        with:
+          project-url: https://github.com/orgs/agenix-sh/projects/1
+          github-token: ${{ secrets.ORG_PROJECT_TOKEN }}
+
+      - name: Update Roadmap Fields
+        uses: actions/github-script@v7
+        env:
+          GH_TOKEN: ${{ secrets.ORG_PROJECT_TOKEN }}
+        with:
+          script: |
+            const PROJECT_NAME = "AGeniX Roadmap";
+            const ORG = "agenix-sh";
+            const COMPONENT_VALUE = "docs";   // ← updated per your field
+
+            const repoName = process.env.GITHUB_REPOSITORY.split("/")[1];
+            const issueNode =
+              context.payload.issue?.node_id ||
+              context.payload.pull_request?.node_id;
+
+            if (!issueNode) return;
+
+            const labels =
+              (context.payload.issue?.labels ||
+               context.payload.pull_request?.labels ||
+               []).map(l => l.name);
+
+            // Priority Rule
+            let priority = "P3";
+            if (labels.includes("P1")) priority = "P1";
+            if (labels.includes("P2")) priority = "P2";
+
+            // Status Rule
+            let status = "Backlog";
+            if (context.payload.action === "assigned") status = "Next";
+            if (context.payload.pull_request?.state === "open") status = "Doing";
+            if (context.payload.issue?.state === "closed" ||
+                context.payload.pull_request?.state === "closed") status = "Done";
+            // (Blocked is manual — do NOT auto-set it)
+
+            const proj = await github.graphql(`
+              query($org: String!) {
+                organization(login: $org) {
+                  projectsV2(first: 25) {
+                    nodes {
+                      id
+                      title
+                      fields(first: 25) {
+                        nodes {
+                          id
+                          name
+                          options { id name }
+                        }
+                      }
+                      items(first: 200, filter:{contentId:{eq:"${issueNode}"}}) {
+                        nodes { id }
+                      }
+                    }
+                  }
+                }
+              }
+            `, { org: ORG });
+
+            const project = proj.organization.projectsV2.nodes.find(p => p.title === PROJECT_NAME);
+            if (!project) return;
+
+            const fields = project.fields.nodes;
+            const item = project.items.nodes[0];
+            if (!item) return;
+
+            async function setField(name, value) {
+              const field = fields.find(f => f.name === name);
+              if (!field) return;
+
+              const opt = field.options.find(o => o.name === value);
+              if (!opt) return;
+
+              await github.graphql(`
+                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                  updateProjectV2ItemFieldValue(input:{
+                    projectId:$projectId,
+                    itemId:$itemId,
+                    fieldId:$fieldId,
+                    value:{singleSelectOptionId:$optionId}
+                  }) {
+                    projectV2Item { id }
+                  }
+                }
+              `, {
+                projectId: project.id,
+                itemId: item.id,
+                fieldId: field.id,
+                optionId: opt.id
+              });
+            }
+
+            await setField("Component", COMPONENT_VALUE);
+            await setField("Priority", priority);
+            await setField("Status", status);
