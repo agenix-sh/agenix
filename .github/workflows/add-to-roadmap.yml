@@ -6,7 +6,6 @@ on:
 
 permissions:
   issues: write
-  repository-projects: write   # ← THIS is the correct Projects v2 permission
   contents: read
 
 jobs:
@@ -15,15 +14,17 @@ jobs:
     steps:
       - name: Add issue to AGeniX Roadmap project
         uses: actions/github-script@v7
+        env:
+          GH_TOKEN: ${{ secrets.ORG_PROJECT_TOKEN }}  # MUST be a PAT with repo + read:org + project scopes
         with:
           script: |
             const org = "agenix-sh";
-            const project = "AGeniX Roadmap"; // EXACT match required
+            const projectName = "AGeniX Roadmap"; // EXACT project title
 
             const issueNodeId = context.payload.issue.node_id;
 
-            // Fetch all ProjectsV2 for the organization
-            const projects = await github.graphql(`
+            // Fetch all organization-level ProjectsV2
+            const query = `
               query($org: String!) {
                 organization(login: $org) {
                   projectsV2(first: 100) {
@@ -34,19 +35,28 @@ jobs:
                   }
                 }
               }
-            `, { org });
+            `;
 
-            const projectNode = projects.organization.projectsV2.nodes
-              .find(p => p.title === project);
+            const result = await github.graphql(query, { org });
 
-            if (!projectNode) {
-              core.setFailed("Project not found: " + project);
+            const projects = result.organization.projectsV2.nodes;
+
+            if (!projects || projects.length === 0) {
+              core.setFailed("No ProjectsV2 found for organization: " + org);
             }
 
-            const projectId = projectNode.id;
+            const project = projects.find(p => p.title === projectName);
 
-            // Add the issue to the org project
-            await github.graphql(`
+            if (!project) {
+              core.setFailed("Project not found: " + projectName);
+            }
+
+            const projectId = project.id;
+
+            console.log("Found project:", projectName, "ID:", projectId);
+
+            // Add the issue to the project
+            const mutation = `
               mutation($projectId: ID!, $contentId: ID!) {
                 addProjectV2ItemById(input: {
                   projectId: $projectId,
@@ -57,9 +67,15 @@ jobs:
                   }
                 }
               }
-            `, {
+            `;
+
+            const addResult = await github.graphql(mutation, {
               projectId,
               contentId: issueNodeId
             });
 
-            console.log("✓ Issue added to AGeniX Roadmap");
+            if (!addResult.addProjectV2ItemById?.item?.id) {
+              core.setFailed("Failed to add issue to AGeniX Roadmap");
+            }
+
+            console.log("✓ Issue added to AGeniX Roadmap:", addResult.addProjectV2ItemById.item.id);
