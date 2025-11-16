@@ -1,81 +1,19 @@
-name: Add Issues to AGeniX Roadmap
+name: Add issues to AGeniX Roadmap
 
 on:
   issues:
-    types: [opened, reopened]
-
-permissions:
-  issues: write
-  contents: read
+    types:
+      - opened
+      - reopened
 
 jobs:
-  add_to_project:
+  add-to-project:
+    name: Add issue to AGeniX Roadmap
     runs-on: ubuntu-latest
     steps:
-      - name: Add issue to AGeniX Roadmap project
-        uses: actions/github-script@v7
-        env:
-          GH_TOKEN: ${{ secrets.ORG_PROJECT_TOKEN }}  # MUST be a PAT with repo + read:org + project scopes
+      - uses: actions/add-to-project@v1.0.2
         with:
-          script: |
-            const org = "agenix-sh";
-            const projectName = "AGeniX Roadmap"; // EXACT project title
-
-            const issueNodeId = context.payload.issue.node_id;
-
-            // Fetch all organization-level ProjectsV2
-            const query = `
-              query($org: String!) {
-                organization(login: $org) {
-                  projectsV2(first: 100) {
-                    nodes {
-                      id
-                      title
-                    }
-                  }
-                }
-              }
-            `;
-
-            const result = await github.graphql(query, { org });
-
-            const projects = result.organization.projectsV2.nodes;
-
-            if (!projects || projects.length === 0) {
-              core.setFailed("No ProjectsV2 found for organization: " + org);
-            }
-
-            const project = projects.find(p => p.title === projectName);
-
-            if (!project) {
-              core.setFailed("Project not found: " + projectName);
-            }
-
-            const projectId = project.id;
-
-            console.log("Found project:", projectName, "ID:", projectId);
-
-            // Add the issue to the project
-            const mutation = `
-              mutation($projectId: ID!, $contentId: ID!) {
-                addProjectV2ItemById(input: {
-                  projectId: $projectId,
-                  contentId: $contentId
-                }) {
-                  item {
-                    id
-                  }
-                }
-              }
-            `;
-
-            const addResult = await github.graphql(mutation, {
-              projectId,
-              contentId: issueNodeId
-            });
-
-            if (!addResult.addProjectV2ItemById?.item?.id) {
-              core.setFailed("Failed to add issue to AGeniX Roadmap");
-            }
-
-            console.log("✓ Issue added to AGeniX Roadmap:", addResult.addProjectV2ItemById.item.id);
+          # 👇 Use your actual org project URL
+          project-url: https://github.com/orgs/agenix-sh/projects/1
+          # 👇 Use your existing secret with the classic PAT
+          github-token: ${{ secrets.ORG_PROJECT_TOKEN }}
