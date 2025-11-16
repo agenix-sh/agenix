@@ -26,51 +26,67 @@ jobs:
           GH_TOKEN: ${{ secrets.ORG_PROJECT_TOKEN }}
         with:
           script: |
-            const PROJECT_NAME = "AGeniX Roadmap";
             const ORG = "agenix-sh";
-            const COMPONENT_VALUE = "docs";   // ← updated per your field
+            const PROJECT_TITLE = "AGeniX Roadmap";
+            const COMPONENT_VALUE = "docs";  // repo-specific
 
-            const repoName = process.env.GITHUB_REPOSITORY.split("/")[1];
             const issueNode =
               context.payload.issue?.node_id ||
               context.payload.pull_request?.node_id;
 
-            if (!issueNode) return;
+            if (!issueNode) {
+              console.log("No issue/PR node id. Skipping.");
+              return;
+            }
 
+            // Priority based on labels
             const labels =
               (context.payload.issue?.labels ||
-               context.payload.pull_request?.labels ||
-               []).map(l => l.name);
+               context.payload.pull_request?.labels || [])
+               .map(l => l.name);
 
-            // Priority Rule
             let priority = "P3";
             if (labels.includes("P1")) priority = "P1";
             if (labels.includes("P2")) priority = "P2";
 
-            // Status Rule
+            // Status based on lifecycle
             let status = "Backlog";
             if (context.payload.action === "assigned") status = "Next";
             if (context.payload.pull_request?.state === "open") status = "Doing";
             if (context.payload.issue?.state === "closed" ||
-                context.payload.pull_request?.state === "closed") status = "Done";
-            // (Blocked is manual — do NOT auto-set it)
+                context.payload.pull_request?.state === "closed")
+                status = "Done";
 
-            const proj = await github.graphql(`
+            // --- FETCH PROJECT + FIELDS + ITEMS ---
+            const result = await github.graphql(`
               query($org: String!) {
                 organization(login: $org) {
-                  projectsV2(first: 25) {
+                  projectsV2(first: 20) {
                     nodes {
                       id
                       title
-                      fields(first: 25) {
+                      fields(first: 50) {
                         nodes {
+                          __typename
                           id
                           name
-                          options { id name }
+                          dataType
+                          ... on ProjectV2SingleSelectField {
+                            options {
+                              id
+                              name
+                            }
+                          }
                         }
                       }
-                      items(first: 200, filter:{contentId:{eq:"${issueNode}"}}) {
-                        nodes { id }
+                      items(first: 200) {
+                        nodes {
+                          id
+                          content {
+                            ... on Issue { id }
+                            ... on PullRequest { id }
+                          }
+                        }
                       }
                     }
                   }
@@ -78,19 +94,46 @@ jobs:
               }
             `, { org: ORG });
 
-            const project = proj.organization.projectsV2.nodes.find(p => p.title === PROJECT_NAME);
-            if (!project) return;
+            // pick the project
+            const project = result.organization.projectsV2.nodes
+              .find(p => p.title === PROJECT_TITLE);
 
-            const fields = project.fields.nodes;
-            const item = project.items.nodes[0];
-            if (!item) return;
+            if (!project) {
+              console.log("Project not found!");
+              return;
+            }
 
-            async function setField(name, value) {
-              const field = fields.find(f => f.name === name);
+            // find the project item by matching content id
+            const item = project.items.nodes.find(
+              i => i.content?.id === issueNode
+            );
+            if (!item) {
+              console.log("Project item not found yet; add-to-project will handle creation.");
+              return;
+            }
+
+            // helper to find field and correct option
+            function getField(name) {
+              return project.fields.nodes.find(f => f.name === name);
+            }
+            function getOption(field, valueName) {
+              return field.options?.find(o => o.name === valueName);
+            }
+
+            async function setFieldValue(fieldName, valueName) {
+              const field = getField(fieldName);
               if (!field) return;
 
-              const opt = field.options.find(o => o.name === value);
-              if (!opt) return;
+              if (field.__typename !== "ProjectV2SingleSelectField") {
+                console.log(`Field '${fieldName}' is not single-select.`);
+                return;
+              }
+
+              const option = getOption(field, valueName);
+              if (!option) {
+                console.log(`Option '${valueName}' not found for field '${fieldName}'`);
+                return;
+              }
 
               await github.graphql(`
                 mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
@@ -98,7 +141,7 @@ jobs:
                     projectId:$projectId,
                     itemId:$itemId,
                     fieldId:$fieldId,
-                    value:{singleSelectOptionId:$optionId}
+                    value:{ singleSelectOptionId:$optionId }
                   }) {
                     projectV2Item { id }
                   }
@@ -107,10 +150,14 @@ jobs:
                 projectId: project.id,
                 itemId: item.id,
                 fieldId: field.id,
-                optionId: opt.id
+                optionId: option.id
               });
+
+              console.log(`✓ Updated ${fieldName} → ${valueName}`);
             }
 
-            await setField("Component", COMPONENT_VALUE);
-            await setField("Priority", priority);
-            await setField("Status", status);
+            await setFieldValue("Component", COMPONENT_VALUE);
+            await setFieldValue("Priority", priority);
+            await setFieldValue("Status", status);
+
+            console.log("✓ All fields updated");
