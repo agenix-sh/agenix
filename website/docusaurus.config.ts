@@ -6,7 +6,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'AGEniX',
-  tagline: 'Local-First Agentic Execution Platform',
+  tagline: 'AGentic uniX',
   favicon: 'img/favicon.ico',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
@@ -122,6 +122,10 @@ const config: Config = {
             {
               label: 'Issues',
               href: 'https://github.com/agenix-sh/agenix/issues',
+            },
+            {
+              label: 'Contact',
+              href: 'mailto:hello@agenix.sh',
             },
           ],
         },
