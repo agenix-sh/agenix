@@ -754,7 +754,7 @@ where
 ## Related Documentation
 
 - [Security Guidelines](./security-guidelines.md) - Security testing requirements
-- [CONTRIBUTING.md](../../CONTRIBUTING.md) - Contribution workflow
+- [CONTRIBUTING.md](https://github.com/agenix-sh/agenix/blob/main/CONTRIBUTING.md) - Contribution workflow
 - [Rust Testing Guide](https://doc.rust-lang.org/book/ch11-00-testing.html)
 - [cargo-tarpaulin](https://github.com/xd009642/tarpaulin)
 

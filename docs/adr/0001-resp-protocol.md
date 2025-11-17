@@ -115,7 +115,7 @@ RESP chosen because:
 
 ### Positive
 
-- **Fast development**: RESP parser implemented in <1 day
+- **Fast development**: RESP parser implemented in &lt;1 day
 - **Easy debugging**: Can manually test with `redis-cli`, `telnet`, or `nc`
 - **Client compatibility**: Python/Node.js/Go/Rust Redis clients work out-of-box
 - **Well-documented**: RESP specification is clear and complete

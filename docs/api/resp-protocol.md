@@ -49,7 +49,7 @@ AGX (Client) ←→ AGQ (Server) ←→ AGW (Client)
 **Decision**: Use RESP instead of custom binary protocol, gRPC, or HTTP/REST
 
 **Rationale**:
-- **Simplicity**: Minimal parser implementation (<500 LOC)
+- **Simplicity**: Minimal parser implementation (&lt;500 LOC)
 - **Debuggability**: Text-based, human-readable
 - **Tooling**: Redis clients exist for all languages
 - **Performance**: Efficient binary-safe encoding

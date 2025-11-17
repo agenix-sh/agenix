@@ -50,7 +50,7 @@ Installation instructions and quick start guide will be added when Phase 1 compo
 - [System Architecture](./architecture/system-overview.md) - Understand how the components work together
 - [Execution Layers](./architecture/execution-layers.md) - Learn about Tasks, Plans, Jobs, Actions, and Workflows
 - [Security Guidelines](./development/security-guidelines.md) - Security-first development practices
-- [Roadmap](./roadmap/overview.md) - See what's coming next
+- [Roadmap](./roadmap/roadmap-structure.md) - See what's coming next
 
 ## Community
 

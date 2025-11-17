@@ -10,6 +10,7 @@ const sidebars: SidebarsConfig = {
         'architecture/system-overview',
         'architecture/execution-layers',
         'architecture/job-schema',
+        'architecture/agx-dual-model',
       ],
     },
     {
@@ -18,6 +19,24 @@ const sidebars: SidebarsConfig = {
       items: [
         'development/security-guidelines',
         'development/testing-strategy',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'API',
+      items: [
+        'api/resp-protocol',
+        'api/agq-endpoints',
+        'api/worker-registration',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Agentic Units',
+      items: [
+        'au-specs/agentic-unit-spec',
+        'au-specs/example-au-template',
+        'au-specs/testing-au',
       ],
     },
     {
@@ -46,8 +65,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Roadmap',
       items: [
-        'roadmap/overview',
-        'roadmap/phase-1',
+        'roadmap/roadmap-structure',
       ],
     },
   ],
