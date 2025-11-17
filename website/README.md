@@ -1,11 +1,44 @@
-# AGEnix Website
+# AGEniX Website
 
-This directory will contain the source for the AGEnix public website.
+Documentation website for the AGEniX project, built with [Docusaurus](https://docusaurus.io/).
 
-Recommended approach:
+## Development
 
-- Use a static site generator (e.g. Docusaurus) backed by the `/docs` directory.
-- Publish via GitHub Pages from this repo (or a dedicated `gh-pages` branch).
-- Link prominently to component repositories and their implementation details.
+```bash
+cd website
+npm install
+npm start
+```
 
-For now this is a placeholder; the site scaffold can be added in a later step.
+This starts a local development server at `http://localhost:3000`.
+
+## Build
+
+```bash
+npm run build
+```
+
+Generates static content into the `build` directory.
+
+## Deployment
+
+The website is configured to deploy to GitHub Pages. To deploy:
+
+1. Enable GitHub Pages in repository settings
+2. Set source to "GitHub Actions"
+3. Push changes to main branch - the deploy workflow will run automatically
+
+## Configuration
+
+- `docusaurus.config.ts` - Main configuration
+- `sidebars.ts` - Documentation sidebar structure
+- `../docs/` - Documentation content (parent directory)
+- `src/pages/` - Custom pages (landing page, etc.)
+
+## Customization
+
+- Logo: `static/img/logo.svg`
+- Favicon: `static/img/favicon.ico`
+- CSS: `src/css/custom.css`
+- Homepage: `src/pages/index.tsx`
+- Features: `src/components/HomepageFeatures/index.tsx`
