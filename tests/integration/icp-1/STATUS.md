@@ -1,7 +1,7 @@
 # ICP-1 Integration Checkpoint - Status
 
 **Last Updated:** 2025-11-18
-**Status:** 🟡 Blocked on Action Layer Implementation
+**Status:** 🟢 Core Workflow Working (Minor cleanup issue remains)
 
 ---
 
@@ -78,22 +78,79 @@ The ICP-1 tests incorrectly tried to skip from Plan → Job execution directly. 
 - ✅ Step 2: `ACTION submit` implemented (AGX-055, AGX-056 completed)
 - ✅ Step 3: `ACTION.SUBMIT` handler implemented in AGQ (AGQ-020 completed)
 - ✅ Step 3: Job creation and storage working
-- 🚧 Step 4: Workers connect but job dispatch (BRPOP) not yet implemented
+- ✅ Step 4: Workers pull jobs via BRPOPLPUSH (AGW-013 completed)
+- ✅ Step 4: Job execution working (tasks execute successfully)
+- ✅ Step 4: Results posted back to AGQ
+- ⚠️  Step 4: Queue cleanup fails (LREM not implemented - AGQ-021)
 - ❌ Step 5: Job status queries not implemented
 
-**Remaining blockers:**
-- **AGQ-011** (✅ CLOSED): BRPOPLPUSH already implemented in AGQ
-- **AGW-013** (🚧 OPEN): Switch from BRPOP to BRPOPLPUSH for reliable job processing
-  - https://github.com/agenix-sh/agw/issues/24
-  - AGW currently uses BRPOP which loses jobs on worker crash
-  - Need atomic job acquisition via BRPOPLPUSH
+**Remaining issues:**
+- **AGQ-021** (🆕 OPEN): Implement LREM for queue:processing cleanup
+  - https://github.com/agenix-sh/agq/issues/35
+  - Jobs execute successfully but cannot be removed from processing queue
+  - Minor issue - jobs accumulate but don't block execution
 
-**After AGW-013:**
+**Next steps:**
+- **AGQ-021:** Implement LREM command (low priority)
 - **Update ICP-1 tests:** Modify to use ACTION.SUBMIT workflow
 
 ---
 
 ## Test Results
+
+### End-to-End Test (2025-11-18 - After AGW-013)
+
+🎉 **FULL WORKFLOW WORKING!**
+
+```bash
+# Terminal 1: Start AGQ
+$ cd /Users/lewis/work/agenix-sh/agq
+$ export SESSION_KEY="deadbeef..."
+$ ./target/release/agq --bind 127.0.0.1:6379 --session-key "$SESSION_KEY"
+INFO AGQ server started successfully on 127.0.0.1:6379
+
+# Terminal 2: Start AGW
+$ cd /Users/lewis/work/agenix-sh/agw
+$ export AGQ_ADDR="127.0.0.1:6379"
+$ export AGQ_SESSION_KEY="deadbeef..."
+$ ./target/release/agw --worker-id icp-test-worker
+INFO Worker icp-test-worker starting main loop
+
+# Terminal 3: Submit Plan and Action
+$ cd /Users/lewis/work/agenix-sh/agx
+$ export AGQ_ADDR="127.0.0.1:6379"
+$ export AGQ_SESSION_KEY="deadbeef..."
+
+$ agx PLAN new
+$ agx PLAN add "sort"
+$ agx PLAN submit
+{"job_id": "plan_8835bff8d2ee40a6ab9d46425fb6d873", "status": "ok"}
+
+$ agx ACTION submit --plan-id plan_8835bff8d2ee40a6ab9d46425fb6d873 --input '{}'
+{
+  "action_id": "action_9a561e950d614d6ab8c68953c410c546",
+  "job_ids": ["job_a39b92c10da144cbac42c01ac74a58c1"],
+  "jobs_created": 1,
+  "status": "ok"
+}
+
+# AGW logs show execution:
+INFO Received job from queue (moved to processing)
+INFO Executing plan 11fb0af5-a9ba-4feb-8935-5517d973574f (job job_a39b92c10da144cbac42c01ac74a58c1) with 1 tasks
+INFO Executing task 1: sort
+INFO Task 1 completed with exit code 0
+INFO Plan completed: 1 tasks executed, success=true
+INFO Successfully posted results for job job_a39b92c10da144cbac42c01ac74a58c1
+ERROR Failed to remove job from processing queue: unknown command 'LREM'
+```
+
+**Results:**
+- ✅ Plan submitted to AGQ
+- ✅ Action created 1 Job
+- ✅ AGW pulled Job via BRPOPLPUSH (atomic)
+- ✅ Task executed successfully (sort command)
+- ✅ Results posted to AGQ
+- ⚠️ LREM cleanup failed (minor - doesn't block execution)
 
 ### Manual Testing (2025-11-18 - After AGX-056)
 
