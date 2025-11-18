@@ -8,7 +8,7 @@ log_info "Starting AGQ on port $TEST_PORT..."
 
 # Start AGQ
 "$AGQ_BIN" \
-    --port "$TEST_PORT" \
+    --bind "127.0.0.1:$TEST_PORT" \
     --session-key "$TEST_SESSION_KEY" \
     > "$AGQ_LOG" 2>&1 &
 

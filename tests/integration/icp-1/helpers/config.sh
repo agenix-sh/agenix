@@ -9,7 +9,8 @@ export AGW_BIN="${AGW_BIN:-/Users/lewis/work/agenix-sh/agw/target/release/agw}"
 # Test configuration
 export TEST_PORT="${TEST_PORT:-6379}"
 export TEST_TIMEOUT="${TEST_TIMEOUT:-30}"
-export TEST_SESSION_KEY="$(openssl rand -hex 32)"
+# Use fixed session key for testing (64 hex chars = 32 bytes)
+export TEST_SESSION_KEY="deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 
 # Paths
 export TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

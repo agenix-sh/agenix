@@ -11,7 +11,7 @@ log_info "Starting AGW (worker: $WORKER_ID)..."
 # Start AGW
 "$AGW_BIN" \
     --worker-id "$WORKER_ID" \
-    --agq-addr "127.0.0.1:$TEST_PORT" \
+    --agq-address "127.0.0.1:$TEST_PORT" \
     --session-key "$TEST_SESSION_KEY" \
     > "$AGW_LOG" 2>&1 &
 
