@@ -81,9 +81,14 @@ The ICP-1 tests incorrectly tried to skip from Plan → Job execution directly. 
 - 🚧 Step 4: Workers connect but job dispatch (BRPOP) not yet implemented
 - ❌ Step 5: Job status queries not implemented
 
-**Next steps:**
-- **AGQ:** Implement job queue (BRPOP) for workers to pull jobs
-- **AGW:** Implement job execution and result reporting
+**Remaining blockers:**
+- **AGQ-011** (✅ CLOSED): BRPOPLPUSH already implemented in AGQ
+- **AGW-013** (🚧 OPEN): Switch from BRPOP to BRPOPLPUSH for reliable job processing
+  - https://github.com/agenix-sh/agw/issues/24
+  - AGW currently uses BRPOP which loses jobs on worker crash
+  - Need atomic job acquisition via BRPOPLPUSH
+
+**After AGW-013:**
 - **Update ICP-1 tests:** Modify to use ACTION.SUBMIT workflow
 
 ---
