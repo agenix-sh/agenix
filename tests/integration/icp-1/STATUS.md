@@ -1,7 +1,7 @@
 # ICP-1 Integration Checkpoint - Status
 
 **Last Updated:** 2025-11-18
-**Status:** 🟡 Partially Complete (Blocked on AGX)
+**Status:** 🟡 Blocked on Action Layer Implementation
 
 ---
 
@@ -9,10 +9,11 @@
 
 ICP-1 validates the minimal viable integration between AGX, AGQ, and AGW. As of 2025-11-18:
 
+- ✅ **AGX** - Schema aligned, `PLAN submit` working
 - ✅ **AGQ** - Schema aligned, validates and stores plans correctly
 - ✅ **AGW** - Connects to AGQ and authenticates successfully
 - ✅ **Test Infrastructure** - Fixtures and helpers updated and working
-- 🚧 **AGX** - Job submission CLI commands not yet implemented (blocked)
+- 🚧 **Action Layer** - ACTION.SUBMIT not yet implemented (blocked)
 
 ---
 
@@ -59,24 +60,30 @@ Connected to AGQ at 127.0.0.1:6379
 
 ## What's Blocked
 
-### AGX (Planner/Orchestrator)
-The ICP-1 tests expect AGX to provide job submission and query commands:
+### Action Layer (AGX + AGQ)
 
-**Required commands (not yet implemented):**
-```bash
-# Submit a job to AGQ
-agx job submit --file <job.json> --agq-addr <addr> --session-key <key>
+The ICP-1 tests incorrectly tried to skip from Plan → Job execution directly. The correct flow requires the **Action layer**:
 
-# Query job output
-agx job stdout <job-id> --agq-addr <addr> --session-key <key>
-
-# Query job status
-agx job status <job-id> --agq-addr <addr> --session-key <key>
+**Correct workflow:**
+```
+1. AGX: PLAN submit (store Plan template in AGQ)
+2. AGX: ACTION submit (Plan + data inputs → creates Jobs)
+3. AGQ: Fan out Action → N Jobs, enqueue to workers
+4. AGW: Pull Job, execute Plan with data
+5. AGX: Query results
 ```
 
+**Current implementation status:**
+- ✅ Step 1: `PLAN submit` working (AGX-054 completed)
+- ❌ Step 2: `ACTION submit` not implemented (AGX-055)
+- ❌ Step 3: `ACTION.SUBMIT` handler missing in AGQ (AGQ-020)
+- ❌ Step 3: Job dispatch to workers not implemented
+- ❌ Step 4: Workers connect but receive no jobs
+- ❌ Step 5: Job status queries not implemented
+
 **Blocked on:**
-- AGX-045: Echo model integration (plan generation)
-- AGX-046: Delta model integration (plan validation)
+- **AGQ-020:** Implement ACTION.SUBMIT (job fan-out, queue management)
+- **AGX-055:** Implement ACTION submit command
 
 ---
 
@@ -110,29 +117,44 @@ if ! "$AGX_BIN" job submit \
 
 ## Next Steps
 
-### 1. Complete AGX Integration (Priority: High)
-- [ ] AGX-045: Implement Echo model for plan generation
-- [ ] AGX-046: Implement Delta model for plan validation
-- [ ] Add AGX CLI commands:
-  - `agx job submit`
-  - `agx job status`
-  - `agx job stdout`
+### 1. Implement Action Layer (Priority: High)
 
-### 2. Run Full ICP-1 Test Suite
-Once AGX is ready:
+**AGQ-020: ACTION.SUBMIT in AGQ**
+- [ ] Add `actions` and `jobs` tables to redb
+- [ ] Implement ACTION.SUBMIT RESP handler
+- [ ] Fan out Action → N Jobs (1 per input)
+- [ ] Enqueue jobs to `queue:ready`
+- [ ] Implement BRPOP for workers to pull jobs
+- [ ] Track job status (pending → assigned → running → completed/failed)
+
+**AGX-055: ACTION submit in AGX**
+- [ ] Add `agx ACTION submit` CLI command
+- [ ] Accept --plan-id, --input, --inputs-file flags
+- [ ] Send ACTION.SUBMIT payload to AGQ
+- [ ] Display action_id and job_ids
+
+### 2. Update ICP-1 Tests
+Once Action layer is implemented:
+- [ ] Update test scripts to use ACTION.SUBMIT workflow
+- [ ] Test fixtures should specify data inputs
+- [ ] Tests verify: Plan → Action → Jobs → Results
+
+### 3. Run Full ICP-1 Test Suite
 ```bash
 cd /Users/lewis/work/agenix-sh/agenix/tests/integration/icp-1
 ./run_all.sh
 ```
 
 Expected flow:
-1. AGX reads job JSON → submits to AGQ via `PLAN.SUBMIT`
-2. AGQ stores plan → assigns to AGW
-3. AGW executes tasks → reports results to AGQ
-4. AGX queries AGQ for job status and output
-5. Tests verify output matches expected results
+1. AGX: Generate Plan, submit to AGQ (`PLAN submit`)
+2. AGX: Submit Action with data (`ACTION submit --input {...}`)
+3. AGQ: Create Job from Plan + input, enqueue to workers
+4. AGW: Pull Job via BRPOP, execute tasks with data
+5. AGW: Report results to AGQ
+6. AGX: Query job status and output
+7. Tests verify output matches expected results
 
-### 3. Deploy to DGX (After ICP-1 Passes)
+### 4. Deploy to DGX (After ICP-1 Passes)
 Validate the full stack on Nvidia DGX infrastructure.
 
 ---
@@ -141,11 +163,17 @@ Validate the full stack on Nvidia DGX infrastructure.
 
 ### Fixed
 - ✅ Schema mismatch (AGQ-019) - AGQ now uses canonical schema
+- ✅ AGX schema alignment (AGX-054) - AGX generates canonical schema
 - ✅ CLI argument mismatch - Helper scripts updated
 - ✅ Session key mismatch - Fixed in config.sh
+- ✅ PLAN.SUBMIT working - Plans stored successfully in AGQ
 
 ### Outstanding
-- 🚧 AGX job submission commands missing (blocked on AGX-045, AGX-046)
+- 🚧 ACTION.SUBMIT not implemented in AGQ (AGQ-020)
+- 🚧 ACTION submit command not in AGX (AGX-055)
+- 🚧 Job dispatch mechanism missing
+- 🚧 Worker job pulling (BRPOP) not implemented
+- 🚧 Job status tracking not implemented
 
 ---
 

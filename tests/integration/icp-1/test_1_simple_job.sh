@@ -35,27 +35,41 @@ sleep 2
 log_info "Step 3: Submitting simple job..."
 JOB_FILE="$FIXTURES_DIR/simple-job.json"
 
-# NOTE: This command structure is placeholder and will need to be updated
-# based on final AGX CLI interface for job submission
-# Expected: agx submit <job.json> --agq-addr <addr> --session-key <key>
-# Returns: job_id
+# Extract plan from job fixture (remove job_id, keep plan_id and tasks)
+PLAN_FILE="/tmp/icp-1-simple-plan-$$.json"
+cat "$JOB_FILE" | jq '{plan_id, plan_description, tasks}' > "$PLAN_FILE"
 
-JOB_ID=$(cat "$JOB_FILE" | jq -r '.job_id')
-log_info "Submitting job: $JOB_ID"
+# Load plan into AGX buffer
+PLAN_BUFFER="/tmp/icp-1-plan-buffer-$$.json"
+cp "$PLAN_FILE" "$PLAN_BUFFER"
 
-# TODO: Replace with actual AGX submission command once AGX-009 is done
-# For now, this is a placeholder that shows the expected interface
-if ! "$AGX_BIN" job submit \
-    --file "$JOB_FILE" \
-    --agq-addr "127.0.0.1:$TEST_PORT" \
-    --session-key "$TEST_SESSION_KEY" \
-    >/dev/null 2>&1; then
-    log_error "Job submission failed"
+# Submit plan to AGQ using AGX
+log_info "Submitting plan to AGQ..."
+SUBMIT_OUTPUT=$(AGX_PLAN_PATH="$PLAN_BUFFER" \
+    AGQ_ADDR="127.0.0.1:$TEST_PORT" \
+    AGQ_SESSION_KEY="$TEST_SESSION_KEY" \
+    "$AGX_BIN" PLAN submit 2>&1)
+
+if [ $? -ne 0 ]; then
+    log_error "Plan submission failed"
+    echo "$SUBMIT_OUTPUT" >&2
+    "$HELPERS_DIR/cleanup.sh"
+    exit 1
+fi
+
+# Extract job_id from submission response
+JOB_ID=$(echo "$SUBMIT_OUTPUT" | jq -r '.job_id // empty')
+if [ -z "$JOB_ID" ]; then
+    log_error "No job_id returned from PLAN submit"
+    echo "$SUBMIT_OUTPUT" >&2
     "$HELPERS_DIR/cleanup.sh"
     exit 1
 fi
 
 log_info "Job submitted: $JOB_ID"
+
+# Cleanup temp files
+rm -f "$PLAN_FILE" "$PLAN_BUFFER"
 
 # Wait for job completion
 log_info "Step 4: Waiting for job to complete..."
