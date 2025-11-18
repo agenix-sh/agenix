@@ -75,19 +75,46 @@ The ICP-1 tests incorrectly tried to skip from Plan → Job execution directly. 
 
 **Current implementation status:**
 - ✅ Step 1: `PLAN submit` working (AGX-054 completed)
-- ❌ Step 2: `ACTION submit` not implemented (AGX-055)
-- ❌ Step 3: `ACTION.SUBMIT` handler missing in AGQ (AGQ-020)
-- ❌ Step 3: Job dispatch to workers not implemented
-- ❌ Step 4: Workers connect but receive no jobs
+- ✅ Step 2: `ACTION submit` implemented (AGX-055, AGX-056 completed)
+- ✅ Step 3: `ACTION.SUBMIT` handler implemented in AGQ (AGQ-020 completed)
+- ✅ Step 3: Job creation and storage working
+- 🚧 Step 4: Workers connect but job dispatch (BRPOP) not yet implemented
 - ❌ Step 5: Job status queries not implemented
 
-**Blocked on:**
-- **AGQ-020:** Implement ACTION.SUBMIT (job fan-out, queue management)
-- **AGX-055:** Implement ACTION submit command
+**Next steps:**
+- **AGQ:** Implement job queue (BRPOP) for workers to pull jobs
+- **AGW:** Implement job execution and result reporting
+- **Update ICP-1 tests:** Modify to use ACTION.SUBMIT workflow
 
 ---
 
 ## Test Results
+
+### Manual Testing (2025-11-18 - After AGX-056)
+
+✅ **ACTION submit workflow verified:**
+
+```bash
+# 1. Create and submit plan
+$ cd /Users/lewis/work/agenix-sh/agx
+$ agx PLAN new
+$ agx PLAN add "echo hello world from ICP-1"
+$ agx PLAN submit
+{"job_id": "plan_8835bff8d2ee40a6ab9d46425fb6d873", "status": "ok"}
+
+# 2. Execute plan with data via ACTION
+$ agx ACTION submit --plan-id plan_8835bff8d2ee40a6ab9d46425fb6d873 --input '{}'
+{
+  "action_id": "action_9a561e950d614d6ab8c68953c410c546",
+  "job_ids": ["job_a39b92c10da144cbac42c01ac74a58c1"],
+  "jobs_created": 1,
+  "plan_description": null,
+  "plan_id": "plan_8835bff8d2ee40a6ab9d46425fb6d873",
+  "status": "ok"
+}
+```
+
+**Status:** Plan → Action → Job creation working. Next: Job dispatch to workers.
 
 ### Current State (2025-11-18)
 
