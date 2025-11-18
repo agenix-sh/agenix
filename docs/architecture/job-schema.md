@@ -2,9 +2,12 @@
 
 **Version:** 0.2
 **Status:** Canonical Specification
-**Updated:** 2025-11-17 (Aligned with execution-layers.md nomenclature)
+**Updated:** 2025-11-18 (JSON schema available in specs/job.schema.json)
+**JSON Schema:** `../../specs/job.schema.json`
 
 This document defines the Job payload structure used across the AGEniX ecosystem. A Job contains the complete Plan as a single unit, ensuring all Tasks execute on one AGW worker with local data access.
+
+**Note:** This describes the **Job envelope** (Execution Layer 3). For Plan templates (Layer 2), see the distinction in `specs/README.md`.
 
 ---
 
