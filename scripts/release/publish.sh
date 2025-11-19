@@ -82,10 +82,65 @@ See CHANGELOG.md for full release notes."
   echo ""
 done
 
+# Publish install.sh to agenix repo release
+echo "Publishing install.sh to agenix repo..."
+AGENIX_PATH="$WORKSPACE_ROOT/agenix"
+cd "$AGENIX_PATH"
+
+TAG="v$VERSION"
+if git rev-parse "$TAG" >/dev/null 2>&1; then
+  echo "⚠️  Tag $TAG already exists in agenix repo"
+else
+  echo "Creating tag $TAG in agenix repo..."
+  git tag -a "$TAG" -m "Release v$VERSION - Installation script
+
+This release provides the unified install.sh script that downloads
+and installs AGX, AGQ, and AGW binaries for the matched version.
+
+Usage: curl -fsSL https://agenix.sh/install.sh | bash"
+  git push origin "$TAG"
+  echo "✓ Tag $TAG created in agenix repo"
+fi
+
+if gh release view "$TAG" >/dev/null 2>&1; then
+  echo "⚠️  Agenix release $TAG already exists, uploading install.sh..."
+  gh release upload "$TAG" "$AGENIX_PATH/install.sh" --clobber
+else
+  echo "Creating agenix release with install.sh..."
+  gh release create "$TAG" \
+    --title "AGEniX v$VERSION" \
+    --notes "# AGEniX v$VERSION Installation
+
+One-line installer for AGX, AGQ, and AGW:
+
+\`\`\`bash
+curl -fsSL https://agenix.sh/install.sh | bash
+\`\`\`
+
+Or install to custom directory:
+
+\`\`\`bash
+curl -fsSL https://agenix.sh/install.sh | bash -s -- --dir /usr/local/bin
+\`\`\`
+
+See individual component releases for detailed changelogs:
+- [AGX v$VERSION](https://github.com/agenix-sh/agx/releases/tag/v$VERSION)
+- [AGQ v$VERSION](https://github.com/agenix-sh/agq/releases/tag/v$VERSION)
+- [AGW v$VERSION](https://github.com/agenix-sh/agw/releases/tag/v$VERSION)" \
+    --target main \
+    "$AGENIX_PATH/install.sh"
+fi
+
+echo "✓ install.sh published to agenix release"
+echo ""
+
 echo "All releases published successfully!"
+echo ""
+echo "Installation:"
+echo "  curl -fsSL https://raw.githubusercontent.com/agenix-sh/agenix/v$VERSION/install.sh | bash"
 echo ""
 echo "Next steps:"
 echo "  1. Verify releases: gh release list"
-echo "  2. Test installation: curl -L <release-url> | bash"
+echo "  2. Test installation script"
 echo "  3. Update documentation with new version"
 echo "  4. Announce release"

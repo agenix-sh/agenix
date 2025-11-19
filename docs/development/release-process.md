@@ -221,10 +221,22 @@ gh release create v0.2.0 \
 
 #### 1. Verify Installations
 
-Test installation from GitHub releases:
+Test the unified install script:
 
 ```bash
-# Download and test
+# Test install script (from GitHub)
+curl -fsSL https://raw.githubusercontent.com/agenix-sh/agenix/v0.2.0/install.sh | bash
+
+# Verify installations
+agx --version  # Should show: agx 0.2.0
+agq --version  # Should show: agq 0.2.0
+agw --version  # Should show: agw 0.2.0
+```
+
+Or test individual component downloads:
+
+```bash
+# Download and test individual component
 curl -L https://github.com/agenix-sh/agx/releases/download/v0.2.0/agx-0.2.0-$(uname -m)-$(uname -s | tr '[:upper:]' '[:lower:]') -o agx
 chmod +x agx
 ./agx --version
@@ -370,7 +382,39 @@ echo "All releases published successfully"
 
 ## Installation Methods
 
-### Method 1: GitHub Releases (Recommended)
+### Method 1: Install Script (Recommended)
+
+The unified install script automatically detects your platform and installs all components:
+
+```bash
+# Install to ~/.local/bin (default)
+curl -fsSL https://agenix.sh/install.sh | bash
+
+# Or use raw GitHub URL
+curl -fsSL https://raw.githubusercontent.com/agenix-sh/agenix/main/install.sh | bash
+
+# Install to custom directory
+curl -fsSL https://agenix.sh/install.sh | bash -s -- --dir /usr/local/bin
+
+# Install specific version
+curl -fsSL https://agenix.sh/install.sh | bash -s -- --version 0.2.0
+
+# Verify installation
+agx --version
+agq --version
+agw --version
+```
+
+**Features:**
+- Automatic platform detection (macOS/Linux, x64/ARM)
+- Installs to `~/.local/bin` by default
+- Adds to PATH automatically
+- Version-locked downloads (all components match)
+- Verifies executable integrity
+
+### Method 2: Manual Download
+
+Download individual components from GitHub Releases:
 
 ```bash
 # Detect platform
@@ -394,7 +438,7 @@ agq --version
 agw --version
 ```
 
-### Method 2: Cargo Install
+### Method 3: Cargo Install
 
 ```bash
 cargo install --git https://github.com/agenix-sh/agx --tag v0.2.0
