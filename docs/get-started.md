@@ -58,14 +58,14 @@ Open a **new terminal** and start worker processes. Workers execute the actual t
 export AGQ_ADDR="127.0.0.1:6379"
 export AGQ_SESSION_KEY="<paste-your-session-key-here>"
 
-# Start first worker
-agw --name worker-1 &
-
-# Start second worker
-agw --name worker-2 &
+# Start workers
+agw &
+agw &
 ```
 
 Each worker will register with AGQ and wait for jobs.
+
+> **Note**: Worker naming (`agw --name worker-1`) is coming in a future release. See [issue #26](https://github.com/agenix-sh/agw/issues/26). For now, workers auto-generate IDs.
 
 ### Step 3: Create and Execute a Plan (AGX)
 
@@ -308,9 +308,9 @@ Add more workers anytime:
 
 ```bash
 # Start additional workers
-agw --name worker-3 &
-agw --name worker-4 &
-agw --name worker-5 &
+agw &
+agw &
+agw &
 ```
 
 AGQ automatically distributes work to all available workers.
