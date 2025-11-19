@@ -376,9 +376,9 @@ source ~/.bashrc
 ## Learn More
 
 - **Architecture** - [Execution Layers](/docs/architecture/execution-layers)
-- **Security** - [Zero-Trust Model](/docs/security/)
+- **Security** - [Zero-Trust Execution](/docs/zero-trust/zero-trust-execution)
 - **API Reference** - [RESP Protocol](/docs/api/resp-protocol)
-- **Advanced Usage** - [Agentic Units](/docs/agentic-units/)
+- **Advanced Usage** - [Agentic Units](/docs/au-specs/agentic-unit-spec)
 
 ## Getting Help
 
@@ -388,4 +388,4 @@ source ~/.bashrc
 
 ---
 
-**Ready to build more complex workflows?** Check out the [Agentic Units guide](/docs/agentic-units/) to learn how to integrate specialized AI tools into your plans.
+**Ready to build more complex workflows?** Check out the [Agentic Units guide](/docs/au-specs/agentic-unit-spec) to learn how to integrate specialized AI tools into your plans.
