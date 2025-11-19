@@ -146,7 +146,7 @@ Demonstrate that:
 - [ ] Validates required fields (job_id, plan_id, tasks)
 - [ ] Validates task numbering (contiguous, 1-based)
 - [ ] Validates input_from_task references
-- [ ] Stores job metadata in job:<id>:* HASH
+- [ ] Stores job metadata in `job:<id>:*` HASH
 - [ ] Enqueues job_id in job:queue LIST
 - [ ] Returns job_id on success
 - [ ] Returns error on validation failure
